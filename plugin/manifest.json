@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "lishoulin.live-wallpaper",
+  "name": "Live Wallpaper",
+  "version": "0.1.0",
+  "author": "lishoulin",
+  "license": "MIT",
+  "description": "Automatic wallpaper rotation from local themes and Bing daily images.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Live Wallpaper",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

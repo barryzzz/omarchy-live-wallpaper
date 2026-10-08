@@ -1,0 +1,14 @@
+[Unit]
+Description=Omarchy live wallpaper rotation timer
+Documentation=https://github.com/
+
+[Timer]
+# 15 minutes is the scheduling floor: interval_hours below that cannot be
+# honoured exactly, because the CLI only runs when the timer fires.
+OnBootSec=2min
+OnUnitActiveSec=15min
+Persistent=true
+Unit=omarchy-live-wallpaper.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,13 @@
+[Unit]
+Description=Omarchy live wallpaper rotation
+Documentation=https://github.com/
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+# The CLI decides whether the interval has elapsed, so the timer can fire
+# often without switching early.
+ExecStart=%h/.local/bin/live-wallpaper next --quiet
+
+[Install]
+WantedBy=default.target

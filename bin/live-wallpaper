@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Entry point. Works from the repo and from the installed location.
+set -euo pipefail
+
+here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+root=$(cd -- "$here/.." && pwd)
+
+# Prefer the installed copy so `live-wallpaper` keeps working after the repo
+# moves; fall back to the repo for development.
+installed="${XDG_DATA_HOME:-$HOME/.local/share}/omarchy-live-wallpaper"
+if [[ -f "$installed/live_wallpaper/cli.py" ]]; then
+  root="$installed"
+fi
+
+exec python3 -c '
+import sys
+sys.path.insert(0, sys.argv[1])
+from live_wallpaper.cli import main
+sys.exit(main(sys.argv[2:]))
+' "$root" "$@"

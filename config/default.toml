@@ -1,0 +1,31 @@
+# Omarchy live wallpaper configuration.
+#
+# Copy to ~/.config/omarchy-live-wallpaper/config.toml (install.sh does this
+# when no config exists). Every key is optional; missing keys use the defaults
+# shown below.
+
+# Hours between switches. Default 24 = one change per day.
+# Supports fractions: 0.5 = every 30 minutes.
+# The scheduler fires every 15 minutes, so anything below ~0.25h is rounded
+# up to the next tick.
+interval_hours = 24
+
+# Where wallpapers come from:
+#   "local" - the current theme's backgrounds only
+#   "bing"  - Bing daily images only
+#   "both"  - alternate between the two (default)
+source = "both"
+
+# Bing market/region, e.g. "zh-CN", "en-US", "ja-JP".
+bing_market = "zh-CN"
+
+# How many past days of Bing images to keep in the pool.
+# 1 (default) = today's image only, which matches a 24h interval.
+# Raise it for short intervals so there is something to rotate through.
+bing_archive_days = 1
+
+# Bing image resolution: "UHD" (4K), "1920x1080", "1366x768", "1024x768".
+bing_resolution = "UHD"
+
+# Desktop notification on each switch.
+notify = true
