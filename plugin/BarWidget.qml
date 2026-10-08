@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
-// Bar widget: shows the current wallpaper source and time until the next
-// switch; clicking rotates immediately (`--force`).
+// Bar widget: an image icon plus the time until the next switch. Left click
+// rotates immediately (`--force`), right click opens the config file.
 //
 // All rotation state lives in the CLI, not here -- the scheduled changes are
 // driven by a systemd timer, so this widget is a view plus a manual trigger
@@ -20,13 +20,15 @@ BarWidget {
   property string nextDue: ""
   property bool available: false
 
+  // Nerd Font picture glyph; the bar's monospace stack (JetBrainsMono NF)
+  // renders it, same as the network/audio widgets' icons.
   readonly property string scriptPath: {
     var url = String(Qt.resolvedUrl("live-wallpaper.sh"))
     return decodeURIComponent(url.replace(/^file:\/\//, ""))
   }
 
-  readonly property string displayText: root.available
-    ? (root.sourceLabel ? root.sourceLabel + " · " + root.nextDue : root.nextDue)
+  readonly property string displayText: root.available && root.nextDue !== ""
+    ? root.nextDue
     : ""
 
   function refresh() {
@@ -34,11 +36,16 @@ BarWidget {
   }
 
   function rotate() {
-    // Command is set inline rather than built in a function: Process.command
-    // is mutated here, so a cached/shared array could carry over stale args.
     if (rotateProc.running) return
     rotateProc.command = [root.scriptPath, "next", "--force"]
     rotateProc.running = true
+  }
+
+  function openConfig() {
+    Quickshell.execDetached([
+      "xdg-open",
+      Quickshell.env("HOME") + "/.config/omarchy-live-wallpaper/config.toml"
+    ])
   }
 
   function command(args) {
@@ -64,8 +71,10 @@ BarWidget {
     root.nextDue = data.next_due_in === "now" ? "due" : (data.next_due_in || "")
   }
 
-  visible: root.available && root.displayText !== ""
-  implicitWidth: button.implicitWidth
+  // Stay visible once the icon is up even if a later status poll fails --
+  // blinking out would look like a bug. The tooltip carries the state.
+  visible: true
+  implicitWidth: row.implicitWidth
   implicitHeight: button.implicitHeight
 
   Component.onCompleted: root.refresh()
@@ -96,17 +105,37 @@ BarWidget {
     onTriggered: root.refresh()
   }
 
-  WidgetButton {
-    id: button
-    anchors.fill: parent
-    bar: root.bar
-    text: root.displayText
-    tooltipText: root.available
-      ? "Live wallpaper · next in " + root.nextDue + " (click to switch now)"
-      : "Live wallpaper CLI not installed"
-    onPressed: function(buttonCode) {
-      if (buttonCode === Qt.LeftButton) root.rotate()
-      else if (buttonCode === Qt.MiddleButton) root.refresh()
+  Row {
+    id: row
+    anchors.verticalCenter: parent.verticalCenter
+
+    BarIconButton {
+      id: button
+      bar: root.bar
+      iconComponent: Component {
+        WallpaperIcon {
+          color: button.active && button.useActiveColor ? button.activeColor : button.foreground
+        }
+      }
+      active: rotateProc.running
+      tooltipText: root.available
+        ? "Live wallpaper (" + root.sourceLabel + ") · next in " + root.nextDue
+          + "\nLeft: switch now · Right: edit config"
+        : "Live wallpaper CLI not installed"
+      onPressed: function(buttonCode) {
+        if (buttonCode === Qt.LeftButton) root.rotate()
+        else if (buttonCode === Qt.RightButton) root.openConfig()
+        else if (buttonCode === Qt.MiddleButton) root.refresh()
+      }
+    }
+
+    Text {
+      anchors.verticalCenter: parent.verticalCenter
+      visible: root.displayText !== ""
+      text: root.displayText
+      color: button.foreground
+      font.family: button.bar ? button.bar.fontFamily : Style.fontFamily
+      font.pixelSize: button.fontSize
     }
   }
 }
