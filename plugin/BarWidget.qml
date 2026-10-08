@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
-// Bar widget: an image icon plus the time until the next switch. Left click
-// rotates immediately (`--force`), right click opens the config file.
+// Bar widget: landscape icon + countdown. Left click opens the wallpaper
+// config menu (registered in omarchy-menu.jsonc), middle click rotates.
 //
 // All rotation state lives in the CLI, not here -- the scheduled changes are
 // driven by a systemd timer, so this widget is a view plus a manual trigger
@@ -20,8 +20,6 @@ BarWidget {
   property string nextDue: ""
   property bool available: false
 
-  // Nerd Font picture glyph; the bar's monospace stack (JetBrainsMono NF)
-  // renders it, same as the network/audio widgets' icons.
   readonly property string scriptPath: {
     var url = String(Qt.resolvedUrl("live-wallpaper.sh"))
     return decodeURIComponent(url.replace(/^file:\/\//, ""))
@@ -35,17 +33,8 @@ BarWidget {
     if (!statusProc.running) statusProc.running = true
   }
 
-  function rotate() {
-    if (rotateProc.running) return
-    rotateProc.command = [root.scriptPath, "next", "--force"]
-    rotateProc.running = true
-  }
-
-  function openConfig() {
-    Quickshell.execDetached([
-      "xdg-open",
-      Quickshell.env("HOME") + "/.config/omarchy-live-wallpaper/config.toml"
-    ])
+  function openMenu() {
+    if (root.bar) root.bar.run("omarchy menu toggle wallpaper")
   }
 
   function command(args) {
@@ -71,8 +60,6 @@ BarWidget {
     root.nextDue = data.next_due_in === "now" ? "due" : (data.next_due_in || "")
   }
 
-  // Stay visible once the icon is up even if a later status poll fails --
-  // blinking out would look like a bug. The tooltip carries the state.
   visible: true
   implicitWidth: row.implicitWidth
   implicitHeight: button.implicitHeight
@@ -117,25 +104,51 @@ BarWidget {
           color: button.active && button.useActiveColor ? button.activeColor : button.foreground
         }
       }
-      active: rotateProc.running
       tooltipText: root.available
         ? "Live wallpaper (" + root.sourceLabel + ") · next in " + root.nextDue
-          + "\nLeft: switch now · Right: edit config"
+          + "\nLeft: menu · Middle: switch now"
         : "Live wallpaper CLI not installed"
       onPressed: function(buttonCode) {
-        if (buttonCode === Qt.LeftButton) root.rotate()
-        else if (buttonCode === Qt.RightButton) root.openConfig()
-        else if (buttonCode === Qt.MiddleButton) root.refresh()
+        if (buttonCode === Qt.LeftButton) root.openMenu()
+        else if (buttonCode === Qt.MiddleButton) {
+          if (rotateProc.running) return
+          rotateProc.command = [root.scriptPath, "next", "--force"]
+          rotateProc.running = true
+        }
       }
     }
 
-    Text {
+    // The countdown rides on the same click surface: a MouseArea over the
+    // whole row forwards to the button's handler, so clicking the text does
+    // exactly what clicking the icon does.
+    Item {
+      width: countText.visible ? countText.implicitWidth : 0
+      height: button.height
       anchors.verticalCenter: parent.verticalCenter
-      visible: root.displayText !== ""
-      text: root.displayText
-      color: button.foreground
-      font.family: button.bar ? button.bar.fontFamily : Style.fontFamily
-      font.pixelSize: button.fontSize
+
+      Text {
+        id: countText
+        anchors.verticalCenter: parent.verticalCenter
+        visible: root.displayText !== ""
+        text: root.displayText
+        color: button.foreground
+        font.family: button.bar ? button.bar.fontFamily : Style.fontFamily
+        font.pixelSize: button.fontSize
+      }
+
+      MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+        cursorShape: Qt.PointingHandCursor
+        onClicked: function(mouse) {
+          if (mouse.button === Qt.LeftButton) root.openMenu()
+          else if (mouse.button === Qt.MiddleButton) {
+            if (rotateProc.running) return
+            rotateProc.command = [root.scriptPath, "next", "--force"]
+            rotateProc.running = true
+          }
+        }
+      }
     }
   }
 }

@@ -55,7 +55,16 @@ def cmd_next(args: argparse.Namespace, config: Config) -> int:
     state = load_state()
     now = time.time()
 
-    plan = rotate.plan(config, state, now=now, force=args.force)
+    if getattr(args, "source_pin", None):
+        # next-local / next-bing: a one-shot single-source pick, without
+        # touching the configured source or the alternation rhythm.
+        pinned = Config(**{**config.as_dict(), "source": args.source_pin})
+        plan = rotate.plan(pinned, state, now=now, force=True)
+        if plan.action == "apply":
+            # Record under the real config so alternation stays consistent.
+            plan.warnings.append(f"pinned to {args.source_pin} for this switch")
+    else:
+        plan = rotate.plan(config, state, now=now, force=args.force)
 
     if args.dry_run:
         print(json.dumps({**plan.to_dict(), **_dry_run_note(config, now)}, indent=2))
@@ -149,6 +158,10 @@ def _ago(timestamp: float | None, now: float) -> str:
 
 def cmd_config(args: argparse.Namespace, config: Config) -> int:
     target = paths.config_file()
+
+    if getattr(args, "config_action", None):
+        return _config_action(args, target)
+
     if args.json:
         print(json.dumps({"config": config.as_dict(), "file": str(target)}, indent=2))
         return 0
@@ -159,6 +172,76 @@ def cmd_config(args: argparse.Namespace, config: Config) -> int:
     print()
     print(f"valid source values: {', '.join(VALID_SOURCES)}")
     return 0
+
+
+def _config_action(args: argparse.Namespace, target) -> int:
+    """`config get|set|unset|toggle` -- what the menu actions call."""
+    from .config_store import DESCRIPTIONS, read_raw, set_value
+
+    action = args.config_action
+    key = args.key
+
+    if action == "get":
+        raw = read_raw(target)
+        current = raw.get(key, None)
+        if current is None:
+            from .config import DEFAULTS
+            current = DEFAULTS.get(key)
+        print(_format_value(current))
+        return 0
+
+    if action == "set":
+        if not key:
+            print("error: config set needs a key and value", file=sys.stderr)
+            return 1
+        # Coerce the value the way tomllib would read it back.
+        try:
+            import tomllib
+
+            value = tomllib.loads(f"value = {args.value}")["value"]
+        except (tomllib.TOMLDecodeError, KeyError):
+            value = args.value  # keep as string
+        try:
+            set_value(target, key, value)
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        print(f"{key} = {_format_value(value)}")
+        return 0
+
+    if action == "unset":
+        if not target.is_file():
+            return 0
+        lines = target.read_text(encoding="utf-8").splitlines(keepends=True)
+        import re
+
+        kept = [
+            line
+            for line in lines
+            if not (match := re.match(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=", line)) or match.group(1) != key
+        ]
+        target.write_text("".join(kept), encoding="utf-8")
+        return 0
+
+    if action == "toggle":
+        raw = read_raw(target)
+        from .config import DEFAULTS
+
+        current = raw.get(key, DEFAULTS.get(key))
+        if not isinstance(current, bool):
+            print(f"error: {key} is not a boolean", file=sys.stderr)
+            return 1
+        set_value(target, key, not current)
+        print(f"{key} = {_format_value(not current)}")
+        return 0
+
+    return 1
+
+
+def _format_value(value) -> str:
+    from .config_store import _format_value
+
+    return _format_value(value)
 
 
 def cmd_pool(args: argparse.Namespace, config: Config) -> int:
@@ -212,13 +295,24 @@ def build_parser() -> argparse.ArgumentParser:
     p_next.add_argument("--quiet", action="store_true", help="suppress the notification")
     p_next.set_defaults(func=cmd_next)
 
+    for pinned, label in (("local", "next local-theme wallpaper"), ("bing", "next Bing wallpaper")):
+        p_pin = sub.add_parser(f"next-{pinned}", help=label)
+        p_pin.add_argument("--json", action="store_true")
+        p_pin.add_argument("--quiet", action="store_true")
+        p_pin.set_defaults(func=cmd_next, source_pin=pinned, force=True, dry_run=False)
+
     p_status = sub.add_parser("status", help="show current wallpaper and next switch")
     p_status.add_argument("--json", action="store_true")
     p_status.set_defaults(func=cmd_status)
 
-    p_config = sub.add_parser("config", help="show the effective configuration")
-    p_config.add_argument("--json", action="store_true")
-    p_config.set_defaults(func=cmd_config)
+    # `config` shows the effective configuration; `config get|set|unset|toggle
+    # [key] [value]` mutates it -- the form the menu actions call.
+    p_cfg = sub.add_parser("config", help="show config, or mutate it: config get|set|unset|toggle [key] [value]")
+    p_cfg.add_argument("config_action", nargs="?", choices=[None, "get", "set", "unset", "toggle"])
+    p_cfg.add_argument("key", nargs="?", default=None)
+    p_cfg.add_argument("value", nargs="?", default=None)
+    p_cfg.add_argument("--json", action="store_true")
+    p_cfg.set_defaults(func=cmd_config)
 
     p_pool = sub.add_parser("pool", help="list wallpapers in the rotation pool")
     p_pool.add_argument("--json", action="store_true")
