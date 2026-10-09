@@ -13,7 +13,7 @@ import qs.Ui
 
 Panel {
     id: root
-    moduleName: "lishoulin.live-wallpaper"
+    moduleName: "io.github.barryzzz.live-wallpaper"
     manageIpc: false
 
     property var anchorItem: null

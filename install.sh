@@ -41,10 +41,14 @@ fi
 
 # Bar widget: icon + click panel (Panel.qml and friends)
 if [[ -d "$repo_root/plugin" ]] && command -v omarchy >/dev/null 2>&1; then
+  # The plugin id is whatever manifest.json declares, so renaming it there
+  # is enough -- no second place to keep in sync.
+  plugin_id=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' \
+    "$repo_root/plugin/manifest.json")
   echo
   read -r -p "==> Install the bar widget? [y/N] " answer
   if [[ $answer =~ ^[Yy]$ ]]; then
-    plugin_dir="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/plugins/lishoulin.live-wallpaper"
+    plugin_dir="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/plugins/$plugin_id"
     mkdir -p "$plugin_dir"
     for f in manifest.json BarWidget.qml Panel.qml PanelRow.qml SectionLabel.qml WallpaperIcon.qml live-wallpaper.sh; do
       cp "$repo_root/plugin/$f" "$plugin_dir/"
@@ -52,10 +56,10 @@ if [[ -d "$repo_root/plugin" ]] && command -v omarchy >/dev/null 2>&1; then
     chmod +x "$plugin_dir/live-wallpaper.sh"
     omarchy plugin validate "$plugin_dir"
     omarchy-shell shell rescanPlugins
-    omarchy plugin enable lishoulin.live-wallpaper --section right
+    omarchy plugin enable "$plugin_id" --section right
     echo "    bar widget enabled"
   else
-    echo "    skipped (install later with: omarchy plugin enable lishoulin.live-wallpaper)"
+    echo "    skipped (install later with: omarchy plugin enable $plugin_id)"
   fi
 fi
 

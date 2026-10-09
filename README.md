@@ -129,7 +129,7 @@ Middle click rotates immediately.
 The time until the next switch lives inside the panel header, not in the bar.
 
 ```bash
-omarchy plugin enable lishoulin.live-wallpaper --section right
+omarchy plugin enable io.github.barryzzz.live-wallpaper --section right
 ```
 
 ## Development

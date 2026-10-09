@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "id": "lishoulin.live-wallpaper",
+  "id": "io.github.barryzzz.live-wallpaper",
   "name": "Live Wallpaper",
   "version": "0.1.0",
-  "author": "lishoulin",
+  "author": "barryzzz",
   "license": "MIT",
   "description": "Automatic wallpaper rotation from local themes and Bing daily images.",
   "kinds": [

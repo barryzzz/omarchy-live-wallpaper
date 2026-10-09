@@ -13,7 +13,7 @@ import qs.Ui
 
 BarWidget {
   id: root
-  moduleName: "lishoulin.live-wallpaper"
+  moduleName: "io.github.barryzzz.live-wallpaper"
 
   // Panel lifecycle, forwarded to the Loader-loaded Panel.qml. The bar's
   // findPanelWidget resolves summon/hide by open/close/opened on this root.
