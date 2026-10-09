@@ -120,8 +120,13 @@ shorten the wait until the next scheduled change.
 
 ## Bar widget (optional)
 
-Shows the active source and time until the next switch. Left click rotates
-immediately; middle click refreshes the display.
+An icon-only button in the bar. Left click opens a popup panel right below
+the icon with the current status (next switch, source, interval) and the
+config rows: switch now, image source (local / Bing daily / alternate),
+switch interval, notifications, and a shortcut to edit the config file.
+Middle click rotates immediately.
+
+The time until the next switch lives inside the panel header, not in the bar.
 
 ```bash
 omarchy plugin enable lishoulin.live-wallpaper --section right
