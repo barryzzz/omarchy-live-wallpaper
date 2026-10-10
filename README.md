@@ -102,8 +102,22 @@ elapsed since the last switch. Two consequences:
 - Intervals shorter than 15 minutes are rounded up to the next timer tick, so
   the effective minimum is ~15 minutes.
 
-`OnBootSec=2min` covers the first switch after boot, and `Persistent=true`
-catches up on switches missed while the machine was off.
+### Powered off or suspended
+
+The countdown runs on the **wall clock**, not on timer ticks, so it keeps going
+while the machine is down. Shut down for three days on a 24-hour interval and
+the switch is due the moment you boot — one switch, not a backlog of three.
+`OnBootSec=2min` covers that first switch.
+
+While a switch is overdue the status reads `overdue — switching on next tick`
+rather than reporting a negative countdown.
+
+To stop the schedule sliding later over time, the countdown is measured from
+the *slot* the last switch belonged to rather than from the moment it
+happened. The timer only fires every 15 minutes, so a switch normally lands a
+few minutes after it came due; measuring from that moment would add those few
+minutes to every later switch, and a "daily" wallpaper would drift through the
+afternoon within a month. On the grid it stays put.
 
 ```bash
 systemctl --user list-timers omarchy-live-wallpaper.timer
@@ -120,13 +134,17 @@ shorten the wait until the next scheduled change.
 
 ## Bar widget (optional)
 
-An icon-only button in the bar. Left click opens a popup panel right below
-the icon with the current status (next switch, source, interval) and the
-config rows: switch now, image source (local / Bing daily / alternate),
-switch interval, notifications, and a shortcut to edit the config file.
-Middle click rotates immediately.
+An icon-only button in the bar. Left click opens a popup panel right below the
+icon: a status hero, a live countdown to the next switch (ticking once a
+second), a switch-now button, and the settings — image source (local / Bing
+daily / alternate), switch interval, and notifications. Middle click rotates
+immediately.
 
-The time until the next switch lives inside the panel header, not in the bar.
+Everything is built on the shell's own control kit, so it follows your theme.
+The panel holds no rotation state: every change is a `live-wallpaper config`
+call, and status is re-read afterwards.
+
+The time until the next switch lives inside the panel, not in the bar.
 
 ```bash
 omarchy plugin enable io.github.barryzzz.live-wallpaper --section right

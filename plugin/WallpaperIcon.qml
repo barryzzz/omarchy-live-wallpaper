@@ -11,6 +11,13 @@ Item {
     id: root
 
     property color color: "white"
+
+    // Declared so hosts that size by implicit size -- PanelHero's icon
+    // loader, the bar's icon slot -- get a sensible picture instead of a
+    // zero-sized one.
+    implicitWidth: 20
+    implicitHeight: 20
+
     readonly property real iconSize: Math.min(width, height)
 
     Shape {

@@ -64,9 +64,13 @@ def build_pool(config: Config) -> list[Candidate]:
 
 
 def _due(state: State, config: Config, now: float) -> bool:
-    if state.last_switch is None:
+    """Whether a switch is due. Measured from the slot, not the last switch,
+    so time spent powered off counts and a few minutes of timer lateness does
+    not push the schedule later."""
+    base = state.countdown_from()
+    if base is None:
         return True
-    return (now - state.last_switch) >= config.interval_seconds()
+    return (now - base) >= config.interval_seconds()
 
 
 def _choose(
@@ -165,6 +169,43 @@ def materialize(candidate: Candidate, config: Config) -> str | None:
     else:
         source = LocalSource()
     return source.prepare(candidate)
+
+
+def schedule_anchor(previous: float | None, now: float, interval_seconds: float) -> float:
+    """The wall-clock slot to measure the next countdown from.
+
+    The countdown runs on the wall clock, so it keeps ticking while the machine
+    is off: shut down for three days on a 24h interval and the switch is due
+    the moment you boot, with no backlog of three.
+
+    Anchoring on the slot rather than on `now` is what stops the schedule from
+    drifting. The timer only fires every 15 minutes, so an ordinary switch
+    lands a few minutes after it came due; measuring from the actual moment
+    would push every later switch later by the same few minutes, and a
+    "daily" wallpaper would slowly slide through the afternoon. Measuring from
+    the slot keeps switch times on the grid and absorbs the lateness instead.
+
+    A gap long enough that the slot's own successor has already passed means
+    the machine was off (or the timer was not running) for a whole interval.
+    The missed slots collapse into the one switch being applied now, so the
+    countdown restarts from `now` rather than from a slot so far behind that
+    the next switch would be due immediately.
+    """
+    if previous is None or interval_seconds <= 0:
+        return now
+    elapsed = now - previous
+    if elapsed < interval_seconds:
+        return now  # switched ahead of schedule: this becomes the new grid
+    slot = previous + int(elapsed // interval_seconds) * interval_seconds
+    if slot + interval_seconds <= now:
+        return now
+    return slot
+
+
+def schedule_due_at(state: State, interval_seconds: float) -> float | None:
+    """When the next switch is due, or None when nothing has switched yet."""
+    base = state.countdown_from()
+    return None if base is None else base + interval_seconds
 
 
 def current_path() -> str | None:

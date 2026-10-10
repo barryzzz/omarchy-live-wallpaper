@@ -50,7 +50,7 @@ if [[ -d "$repo_root/plugin" ]] && command -v omarchy >/dev/null 2>&1; then
   if [[ $answer =~ ^[Yy]$ ]]; then
     plugin_dir="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/plugins/$plugin_id"
     mkdir -p "$plugin_dir"
-    for f in manifest.json BarWidget.qml Panel.qml PanelRow.qml SectionLabel.qml WallpaperIcon.qml live-wallpaper.sh; do
+    for f in manifest.json BarWidget.qml Panel.qml SegmentedChoice.qml WallpaperIcon.qml live-wallpaper.sh; do
       cp "$repo_root/plugin/$f" "$plugin_dir/"
     done
     chmod +x "$plugin_dir/live-wallpaper.sh"

@@ -30,17 +30,31 @@ def _fmt_remaining(seconds: float) -> str:
     return f"{int(seconds)}s"
 
 
+def _countdown(config: Config, state, now: float) -> tuple[float, bool]:
+    """Seconds until the next switch, and whether it is already due.
+
+    Measured from the slot the countdown is anchored to, so a machine that was
+    off for longer than the interval reads as due rather than as a large
+    negative number.
+    """
+    due_at = rotate.schedule_due_at(state, config.interval_seconds())
+    if due_at is None:
+        return 0.0, True
+    return due_at - now, due_at <= now
+
+
 def _dry_run_note(config: Config, now: float) -> dict[str, Any]:
     state = load_state()
-    remaining = 0.0
-    if state.last_switch is not None:
-        remaining = max(0.0, config.interval_seconds() - (now - state.last_switch))
+    remaining, due = _countdown(config, state, now)
     return {
         "current": rotate.current_path(),
         "last_switch": state.last_switch,
         "last_source": state.last_source,
         "next_due_in": _fmt_remaining(remaining),
-        "due": remaining <= 0,
+        # Epoch seconds, so the bar panel can tick its own countdown between
+        # refreshes instead of showing a string that is already stale.
+        "next_due_at": rotate.schedule_due_at(state, config.interval_seconds()),
+        "due": due,
         "config": config.as_dict(),
         "config_file": str(paths.config_file()),
         "state_file": str(paths.state_file()),
@@ -97,7 +111,10 @@ def cmd_next(args: argparse.Namespace, config: Config) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
-    state.last_switch = now
+    # The countdown is anchored to the slot this switch belongs to, not to
+    # `now`, so the few minutes of lateness between a switch coming due and
+    # the timer firing does not accumulate into drift. See rotate.schedule_anchor.
+    state.record_switch(now, rotate.schedule_anchor(state.countdown_from(), now, config.interval_seconds()))
     state.remember(candidate.source, candidate.path)
     save_state(state)
 
@@ -141,13 +158,23 @@ def cmd_status(args: argparse.Namespace, config: Config) -> int:
     print(f"current      {payload['current'] or '(none)'}")
     print(f"last switch  {_ago(state.last_switch, now)}")
     print(f"last source  {state.last_source or '(none)'}")
-    print(f"next due     {payload['next_due_in']}")
+    print(f"next due     {_next_due_line(payload, state)}")
     print(f"interval     {config.interval_hours}h")
     print(f"source       {config.source}")
     if config.source in ("bing", "both"):
         print(f"bing         market={config.bing_market} archive={config.bing_archive_days}")
     print(f"config       {payload['config_file']}")
     return 0
+
+
+def _next_due_line(payload: dict[str, Any], state) -> str:
+    """The countdown has already run down while the machine was off, so say
+    that rather than reporting a switch that is late as if it were pending."""
+    if state.last_switch is None:
+        return "on first run"
+    if not payload["due"]:
+        return payload["next_due_in"]
+    return "overdue — switching on next tick"
 
 
 def _ago(timestamp: float | None, now: float) -> str:
